@@ -9,6 +9,7 @@ import torch.nn as nn
 
 from utils.view_ops import permute_inverse
 from utils.view_ops import get_permute_transform
+import pysnooper
 
 
 class Attention(nn.Module):
@@ -146,6 +147,8 @@ class TransFusion(nn.Module):
                           atte_dropout_rate=atte_dropout_rate)
             self.layer.append(copy.deepcopy(layer))
 
+
+    @pysnooper.snoop('/home/yusongli/Downloads/swinmm.log', color=False, watch=('x_1.shape', 'x_2.shape'))
     def forward(self, x_1, x_2, view_list):
         if self.cross_attention_in_origin_view:
             x_1, x_2 = permute_inverse([x_1, x_2], view_list)

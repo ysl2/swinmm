@@ -6,6 +6,9 @@ import torch
 from monai.networks import blocks
 from monai.networks.nets import swin_unetr
 
+if __name__ == '__main__':
+    import sys
+    sys.path.append('..')
 from models import cross_attention
 
 __all__ = [
@@ -138,8 +141,6 @@ class SwinUNETR(swin_unetr.SwinUNETR):
 
 
 if __name__ == '__main__':
-    import sys
-    sys.path.append('..')
     from utils import view_ops
 
     roi_x = 64
