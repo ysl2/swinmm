@@ -135,3 +135,40 @@ class SwinUNETR(swin_unetr.SwinUNETR):
                 (r'^swinViT\.layers(\d+)\.0\.\w+\.(\d+)', None),
                 (r'^swinViT\.norm', (99999,)),
             ])
+
+
+if __name__ == '__main__':
+    import sys
+    sys.path.append('..')
+    from utils import view_ops
+
+    roi_x = 64
+    roi_y = 64
+    roi_z = 64
+    in_channels = 1
+    out_channels = 17
+    feature_size = 48
+    dropout_path_rate = 0.0
+    use_checkpoint = False
+    cross_attention_in_origin_view = True
+
+    device = 5
+
+    model = SwinUNETR(
+        img_size=(roi_x, roi_y, roi_z),
+        in_channels=in_channels,
+        out_channels=out_channels,
+        feature_size=feature_size,
+        fusion_depths=(1, 1, 1, 1, 1, 1),
+        drop_rate=0.0,
+        attn_drop_rate=0.0,
+        dropout_path_rate=dropout_path_rate,
+        use_checkpoint=use_checkpoint,
+        cross_attention_in_origin_view=cross_attention_in_origin_view,
+    )
+    model.cuda(device)
+
+    x = torch.randn(1, 1, 64, 64, 64).cuda(device)
+    xs, views = view_ops.permute_rand(x)
+
+    y1, y2 = model(xs[0], xs[1], views)
