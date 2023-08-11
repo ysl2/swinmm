@@ -10,6 +10,12 @@ import torch.nn as nn
 from utils.view_ops import permute_inverse
 from utils.view_ops import get_permute_transform
 import pysnooper
+import datetime
+import pathlib
+
+TIMESTAMP = datetime.datetime.now().strftime('%Y_%m_%d-%H_%M_%S')
+LOGDIR = pathlib.Path('/home/yusongli/Documents/swinmm/logs')
+LOGDIR.mkdir(parents=True, exist_ok=True)
 
 
 class Attention(nn.Module):
@@ -148,7 +154,7 @@ class TransFusion(nn.Module):
             self.layer.append(copy.deepcopy(layer))
 
 
-    @pysnooper.snoop('/home/yusongli/Downloads/swinmm.log', color=False, watch=('x_1.shape', 'x_2.shape'))
+    @pysnooper.snoop(LOGDIR / f'{TIMESTAMP}.log', color=False, watch=('x_1.shape', 'x_2.shape'))
     def forward(self, x_1, x_2, view_list):
         if self.cross_attention_in_origin_view:
             x_1, x_2 = permute_inverse([x_1, x_2], view_list)
