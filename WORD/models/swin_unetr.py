@@ -143,17 +143,28 @@ class SwinUNETR(swin_unetr.SwinUNETR):
 if __name__ == '__main__':
     from utils import view_ops
 
-    roi_x = 64
-    roi_y = 64
-    roi_z = 64
-    in_channels = 1
-    out_channels = 17
+    # torch.Size([16, 32, 32, 80, 96])                                                                                                                                                │
+    # torch.Size([16, 64, 32, 40, 48])                                                                                                                                                │
+    # torch.Size([16, 128, 32, 20, 24])                                                                                                                                               │
+    # torch.Size([16, 256, 16, 10, 12])                                                                                                                                               │
+    # torch.Size([16, 320, 8, 5, 6])                                                                                                                                                  │
+
+    device = 5
+    # x = torch.randn(1, 1, 64, 64, 64).cuda(device)
+    x = torch.randn(1, 31, 64, 64, 64).cuda(device)
+
+    # 2, 4, 8, 16, 32
+    # x = torch.randn(1, 1, 32, 80, 96).cuda(device)
+
+    roi_x = x.shape[2]
+    roi_y = x.shape[3]
+    roi_z = x.shape[4]
+    in_channels = x.shape[1]
+    out_channels = 2
     feature_size = 48
     dropout_path_rate = 0.0
     use_checkpoint = False
     cross_attention_in_origin_view = True
-
-    device = 5
 
     model = SwinUNETR(
         img_size=(roi_x, roi_y, roi_z),
@@ -169,7 +180,7 @@ if __name__ == '__main__':
     )
     model.cuda(device)
 
-    x = torch.randn(1, 1, 64, 64, 64).cuda(device)
     xs, views = view_ops.permute_rand(x)
 
     y1, y2 = model(xs[0], xs[1], views)
+    print(y1.shape, y2.shape)
