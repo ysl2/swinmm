@@ -15,6 +15,7 @@ ysl = smuggle('../../_.py')
 
 class Attention(nn.Module):
 
+    @ysl.snoop()
     def __init__(self, num_heads=8, hidden_size=768, atte_dropout_rate=0.0):
         super(Attention, self).__init__()
         # self.vis = vis
@@ -38,6 +39,22 @@ class Attention(nn.Module):
         x = x.view(*new_x_shape)
         return x.permute(0, 2, 1, 3)
 
+    @ysl.snoop(
+        watch=(
+            'mixed_query_layer_1.shape',
+            'mixed_key_layer_1.shape',
+            'mixed_value_layer_1.shape',
+            'query_layer_1.shape',
+            'key_layer_1.shape',
+            'value_layer_1.shape',
+            'mixed_query_layer_2.shape',
+            'mixed_key_layer_2.shape',
+            'mixed_value_layer_2.shape',
+            'query_layer_2.shape',
+            'key_layer_2.shape',
+            'value_layer_2.shape',
+        )
+    )
     def forward(self, x_1, x_2):
         mixed_query_layer_1 = self.query(x_1)
         mixed_key_layer_1 = self.key(x_1)
@@ -52,6 +69,7 @@ class Attention(nn.Module):
         key_layer_2 = self.transpose_for_scores(mixed_key_layer_2)
         value_layer_2 = self.transpose_for_scores(mixed_value_layer_2)
 
+        import ipdb; ipdb.set_trace()  # HACK: Songli.Yu: ""
         attention_scores_1 = torch.matmul(query_layer_1,
                                           key_layer_2.transpose(-1, -2))
         attention_scores_1 = attention_scores_1 / math.sqrt(
@@ -113,6 +131,7 @@ class Block(nn.Module):
 
 class TransFusion(nn.Module):
 
+    # @ysl.snoop(watch=('n_patches', 'self.position_embeddings.shape'))
     def __init__(self,
                  hidden_size: int = 768,
                  num_layers: int = 6,
@@ -121,16 +140,18 @@ class TransFusion(nn.Module):
                  num_heads: int = 8,
                  atte_dropout_rate: float = 0.0,
                  roi_size: Union[Sequence[int], int] = (64, 64, 64),
-                 scale: int = 16,
+                 scale: Union[Sequence[int], int] = 16,
                  cross_attention_in_origin_view: bool = False):
         super().__init__()
         if isinstance(roi_size, int):
             roi_size = [roi_size for _ in range(3)]
         self.cross_attention_in_origin_view = cross_attention_in_origin_view
         patch_size = (1, 1, 1)
+        if isinstance(scale, int):
+            scale = [scale for _ in range(3)]
         n_patches = (roi_size[0] // patch_size[0] //
-                     scale) * (roi_size[1] // patch_size[1] //
-                               scale) * (roi_size[2] // patch_size[2] // scale)
+                     scale[0]) * (roi_size[1] // patch_size[1] //
+                               scale[1]) * (roi_size[2] // patch_size[2] // scale[2])
         self.layer = nn.ModuleList()
         self.encoder_norm = nn.LayerNorm(hidden_size, eps=1e-6)
         self.patch_embeddings = nn.Conv3d(in_channels=hidden_size,
@@ -149,17 +170,20 @@ class TransFusion(nn.Module):
             self.layer.append(copy.deepcopy(layer))
 
 
-    @ysl.snoop(watch=('x_1.shape', 'x_2.shape'))
-    def forward(self, x_1, x_2, view_list):
-        if self.cross_attention_in_origin_view:
-            x_1, x_2 = permute_inverse([x_1, x_2], view_list)
-        else:
-            # Align x_2 to x_1.
-            x_2 = get_permute_transform(*view_list[::-1])(x_2)
+    # @ysl.snoop(watch=('x_1.shape', 'x_2.shape'))
+    def forward(self, x_1, x_2, view_list=None):
+        if view_list:
+            if self.cross_attention_in_origin_view:
+                x_1, x_2 = permute_inverse([x_1, x_2], view_list)
+            else:
+                # Align x_2 to x_1.
+                x_2 = get_permute_transform(*view_list[::-1])(x_2)
         x_1 = self.patch_embeddings(x_1)
         x_2 = self.patch_embeddings(x_2)
-        x_1 = x_1.flatten(2).transpose(-1, -2)
-        x_2 = x_2.flatten(2).transpose(-1, -2)
+        x_1 = x_1.flatten(2)
+        x_1 = x_1.transpose(-1, -2)
+        x_2 = x_2.flatten(2)
+        x_2 = x_2.transpose(-1, -2)
         x_1 = x_1 + self.position_embeddings
         x_2 = x_2 + self.position_embeddings
         x_1 = self.dropout(x_1)
@@ -174,9 +198,10 @@ class TransFusion(nn.Module):
             np.cbrt(n_patch))
         x_1 = x_1.permute(0, 2, 1).contiguous().view(B, hidden, l, h, w)
         x_2 = x_2.permute(0, 2, 1).contiguous().view(B, hidden, l, h, w)
-        if self.cross_attention_in_origin_view:
-            x_1, x_2 = permute_inverse([x_1, x_2], view_list)
-        else:
-            x_2 = get_permute_transform(*view_list)(x_2)
+        if view_list:
+            if self.cross_attention_in_origin_view:
+                x_1, x_2 = permute_inverse([x_1, x_2], view_list)
+            else:
+                x_2 = get_permute_transform(*view_list)(x_2)
 
         return x_1, x_2

@@ -5,11 +5,12 @@ import torch
 
 from monai.networks import blocks
 from monai.networks.nets import swin_unetr
-
 if __name__ == '__main__':
     import sys
     sys.path.append('..')
 from models import cross_attention
+from thesmuggler import smuggle
+ysl = smuggle('../../_.py')
 
 __all__ = [
     "SwinUNETR",
@@ -142,6 +143,7 @@ class SwinUNETR(swin_unetr.SwinUNETR):
 
 if __name__ == '__main__':
     from utils import view_ops
+    device = 5
 
     # torch.Size([16, 32, 32, 80, 96])                                                                                                                                                │
     # torch.Size([16, 64, 32, 40, 48])                                                                                                                                                │
@@ -149,38 +151,49 @@ if __name__ == '__main__':
     # torch.Size([16, 256, 16, 10, 12])                                                                                                                                               │
     # torch.Size([16, 320, 8, 5, 6])                                                                                                                                                  │
 
-    device = 5
-    # x = torch.randn(1, 1, 64, 64, 64).cuda(device)
-    x = torch.randn(1, 31, 64, 64, 64).cuda(device)
 
     # 2, 4, 8, 16, 32
     # x = torch.randn(1, 1, 32, 80, 96).cuda(device)
 
-    roi_x = x.shape[2]
-    roi_y = x.shape[3]
-    roi_z = x.shape[4]
-    in_channels = x.shape[1]
-    out_channels = 2
-    feature_size = 48
-    dropout_path_rate = 0.0
-    use_checkpoint = False
-    cross_attention_in_origin_view = True
+    # x = torch.randn(1, 1, 64, 64, 64).cuda(device)
+    # roi_x = x.shape[2]
+    # roi_y = x.shape[3]
+    # roi_z = x.shape[4]
+    # in_channels = x.shape[1]
+    # out_channels = 2
+    # feature_size = 48
+    # dropout_path_rate = 0.0
+    # use_checkpoint = False
+    # cross_attention_in_origin_view = True
+    # model = SwinUNETR(
+    #     img_size=(roi_x, roi_y, roi_z),
+    #     in_channels=in_channels,
+    #     out_channels=out_channels,
+    #     feature_size=feature_size,
+    #     fusion_depths=(1, 1, 1, 1, 1, 1),
+    #     drop_rate=0.0,
+    #     attn_drop_rate=0.0,
+    #     dropout_path_rate=dropout_path_rate,
+    #     use_checkpoint=use_checkpoint,
+    #     cross_attention_in_origin_view=cross_attention_in_origin_view,
+    # ).cuda(device)
+    # xs, views = view_ops.permute_rand(x)
+    # y1, y2 = model(xs[0], xs[1], views)
+    # print(y1.shape, y2.shape)
 
-    model = SwinUNETR(
-        img_size=(roi_x, roi_y, roi_z),
-        in_channels=in_channels,
-        out_channels=out_channels,
-        feature_size=feature_size,
-        fusion_depths=(1, 1, 1, 1, 1, 1),
-        drop_rate=0.0,
-        attn_drop_rate=0.0,
-        dropout_path_rate=dropout_path_rate,
-        use_checkpoint=use_checkpoint,
-        cross_attention_in_origin_view=cross_attention_in_origin_view,
-    )
-    model.cuda(device)
+    x = torch.randn(1, 1, 32, 80, 96).cuda(device)
+    x1 = torch.randn(1, 1, 32, 80, 96).cuda(device)
 
-    xs, views = view_ops.permute_rand(x)
-
-    y1, y2 = model(xs[0], xs[1], views)
+    model = cross_attention.TransFusion(
+        hidden_size=x.shape[1],
+        num_layers=1,
+        mlp_dim=1536,
+        num_heads=1,  # Relative with channel.
+        dropout_rate=0.0,
+        atte_dropout_rate=0.0,
+        roi_size=x1.shape[2:],
+        scale=1,
+        cross_attention_in_origin_view=True
+    ).cuda(device)
+    y1, y2 = model(x, x1)
     print(y1.shape, y2.shape)
